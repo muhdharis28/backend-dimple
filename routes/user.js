@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const bcrypt = require('bcrypt');
 const ModelUser = require('../models/user');
+const Division = require('../models/division');
 const passwordCheck = require('../utils/passwordCheck');
 
 // Configure multer for image upload
@@ -15,6 +16,37 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage });
+
+// Endpoint to get users by division
+router.get('/by-division', async (req, res) => {
+    const { divisionId } = req.query;
+
+    try {
+        const divisionRecord = await Division.findOne({ where: { id: divisionId } });
+
+        if (!divisionRecord) {
+            return res.status(404).json({
+                status: 404,
+                message: 'Division not found',
+            });
+        }
+        
+        const users = await ModelUser.findAll({
+            where: { divisionId: divisionRecord.id },
+            include: [{ model: Division, as: 'division' }]
+        });
+        res.status(200).json({
+            status: 200,
+            data: users,
+        });
+    } catch (error) {
+        console.error('Error fetching users by division:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'Internal server error',
+        });
+    }
+});
 
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
@@ -36,13 +68,19 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        // Assuming dataUser contains the role
         res.status(200).json({
             status: 200,
-            data: dataUser,
+            data: {
+                id: dataUser.id,
+                username: dataUser.username,
+                email: dataUser.email,
+                role: dataUser.role,  // Include the role in the response
+            },
             message: 'Login successful',
         });
     } catch (error) {
-        console.error(error);
+        console.error('Error during login:', error);
         res.status(500).json({
             status: 500,
             message: 'Internal server error',
@@ -51,7 +89,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-    const { username, email, password } = req.body;
+    const { username, email, password, divisionId } = req.body;
 
     try {
         // Check if user already exists
@@ -71,12 +109,13 @@ router.post('/register', async (req, res) => {
             username,
             email,
             password: encryptedPassword,
+            divisionId
         });
 
         res.status(200).json({
             status: 200,
             data: user,
-            metadata: 'User added successfully',
+            message: 'User added successfully',
         });
     } catch (error) {
         console.error(error);
@@ -89,18 +128,22 @@ router.post('/register', async (req, res) => {
 
 // Endpoint Method Put / Update Data User
 router.put('/profile', async (req, res) => {
-    const { username, email, description } = req.body;
+    const { username, email, description, divisionId } = req.body;
 
     try {
         const [updated] = await ModelUser.update({
             username,
             email,
             description,
+            divisionId
         }, {
             where: { email }
         });
 
         if (updated) {
+            // Broadcast the user update
+            const user = await ModelUser.findOne({ where: { email } });
+
             res.status(200).json({
                 status: 200,
                 message: 'User updated successfully',
@@ -163,7 +206,10 @@ router.get('/profile', async (req, res) => {
     const { email } = req.query;
     
     try {
-        const user = await ModelUser.findOne({ where: { email } });
+        const user = await ModelUser.findOne({
+            where: { email },
+            include: [{ model: Division, as: 'division' }]
+        });
         
         if (!user) {
             return res.status(404).json({
@@ -179,6 +225,7 @@ router.get('/profile', async (req, res) => {
                 email: user.email,
                 description: user.description,
                 profileImageUrl: user.profileImageUrl,
+                division: user.division ? user.division.name : null
             },
             message: 'User profile fetched successfully',
         });
@@ -251,6 +298,110 @@ router.put('/profile/image', upload.single('profileImage'), async (req, res) => 
         });
     } catch (error) {
         console.error('Error updating profile image:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'Internal server error',
+        });
+    }
+});
+
+router.get('/list', async (req, res) => {
+    try {
+        const users = await ModelUser.findAll({include: [{ model: Division, as: 'division' }]});
+        res.status(200).json({
+            status: 200,
+            data: users,
+        });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'Internal server error',
+        });
+    }
+});
+
+// Update user role
+router.put('/update-role', async (req, res) => {
+    const { userId, role } = req.body;
+
+    try {
+        const user = await ModelUser.findByPk(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                status: 404,
+                message: 'User not found',
+            });
+        }
+
+        user.role = role;
+        await user.save();
+
+        res.status(200).json({
+            status: 200,
+            message: 'Role updated successfully',
+        });
+    } catch (error) {
+        console.error('Error updating role:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'Internal server error',
+        });
+    }
+});
+
+// Fetch user by ID
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const user = await ModelUser.findOne({ where: { id }, include: [{ model: Division, as: 'division' }] });
+
+        if (!user) {
+            return res.status(404).json({
+                status: 404,
+                message: 'User not found',
+            });
+        }
+
+        res.status(200).json({
+            status: 200,
+            data: user,
+            message: 'User details fetched successfully',
+        });
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'Internal server error',
+        });
+    }
+});
+
+// Update user by ID
+router.put('/:id', async (req, res) => {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    try {
+        const [updated] = await ModelUser.update({ role: role || 'default' }, { where: { id } });
+
+        if (updated) {
+            const user = await ModelUser.findOne({ where: { id } });
+
+            res.status(200).json({
+                status: 200,
+                message: 'User role updated successfully',
+            });
+        } else {
+            res.status(404).json({
+                status: 404,
+                message: 'User not found',
+            });
+        }
+    } catch (error) {
+        console.error('Error updating user role:', error);
         res.status(500).json({
             status: 500,
             message: 'Internal server error',
