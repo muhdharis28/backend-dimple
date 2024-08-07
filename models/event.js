@@ -52,7 +52,7 @@ Event.init({
         values: [
             'Perlu Verifikasi',
             'Verifikasi Ditolak',
-            'Butuh Verifikasi Penerima',
+            'Perlu Konfirmasi Penerima',
             'Penerima Setuju',
             'Penerima Menolak',
             'Ditolak',

@@ -297,7 +297,7 @@ router.post('/accept/:id', async (req, res) => {
             return res.status(404).json({ message: 'Event not found' });
         }
 
-        event.status = 'Butuh Verifikasi Penerima';
+        event.status = 'Perlu Konfirmasi Penerima';
         await event.save();
 
         res.status(200).json({ message: 'Event accepted successfully' });
