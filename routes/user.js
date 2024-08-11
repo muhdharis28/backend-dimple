@@ -89,7 +89,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-    const { username, email, password, divisionId } = req.body;
+    const { username, email, password, divisionName } = req.body;
 
     try {
         // Check if user already exists
@@ -102,14 +102,15 @@ router.post('/register', async (req, res) => {
         }
 
         // Encrypt password
+        
         const encryptedPassword = await bcrypt.hash(password, 10);
-
+        const divisionRecord = await Division.findOne({ where: { name: divisionName } });
         // Create new user
         const user = await ModelUser.create({
             username,
             email,
             password: encryptedPassword,
-            divisionId
+            divisionId: divisionRecord.id
         });
 
         res.status(200).json({
@@ -128,34 +129,45 @@ router.post('/register', async (req, res) => {
 
 // Endpoint Method Put / Update Data User
 router.put('/profile', async (req, res) => {
-    const { username, email, description, divisionId } = req.body;
-
+    const { username, email, newEmail, description } = req.body;
+    
     try {
-        const [updated] = await ModelUser.update({
-            username,
-            email,
-            description,
-            divisionId
-        }, {
-            where: { email }
-        });
+        // Find the user by the current email
+        const user = await ModelUser.findOne({ where: { email } });
 
-        if (updated) {
-            // Broadcast the user update
-            const user = await ModelUser.findOne({ where: { email } });
-
-            res.status(200).json({
-                status: 200,
-                message: 'User updated successfully',
-            });
-        } else {
-            res.status(404).json({
+        if (!user) {
+            return res.status(404).json({
                 status: 404,
                 message: 'User not found',
             });
         }
+
+        // Check if the new email is already in use by another user
+        if (newEmail) {
+            const emailExists = await ModelUser.findOne({ where: { email: newEmail } });
+            if (emailExists && emailExists.id !== user.id) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Email already in use by another user',
+                });
+            }
+
+            user.email = newEmail; // Update to the new email
+        }
+
+        // Update other user details
+        user.username = username || user.username;
+        user.description = description || user.description;
+
+        // Save the updated user profile
+        await user.save();
+
+        res.status(200).json({
+            status: 200,
+            message: 'User updated successfully',
+        });
     } catch (error) {
-        console.error(error);
+        console.error('Error updating user profile:', error);
         res.status(500).json({
             status: 500,
             message: 'Internal server error',
@@ -214,7 +226,7 @@ router.get('/profile', async (req, res) => {
         if (!user) {
             return res.status(404).json({
                 status: 404,
-                message: 'User not found',
+                message: 'User not founds',
             });
         }
 
@@ -225,7 +237,8 @@ router.get('/profile', async (req, res) => {
                 email: user.email,
                 description: user.description,
                 profileImageUrl: user.profileImageUrl,
-                division: user.division ? user.division.name : null
+                division: user.division ? user.division.name : null,
+                role: user.role
             },
             message: 'User profile fetched successfully',
         });

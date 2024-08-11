@@ -307,28 +307,7 @@ router.post('/accept/:id', async (req, res) => {
     }
 });
 
-router.post('/reject/:id', async (req, res) => {
-    const { id } = req.params;
-    const { reason } = req.body;
-
-    try {
-        const event = await Event.findOne({ where: { id } });
-        if (!event) {
-            return res.status(404).json({ message: 'Event not found' });
-        }
-
-        event.status = 'Penerima Menolak';
-        event.rejectionReason = reason; // Assuming the Event model has a rejectionReason field
-        await event.save();
-
-        res.status(200).json({ message: 'Event rejected successfully' });
-    } catch (error) {
-        console.error('Error rejecting event:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-router.post('/Ditolak/:id', async (req, res) => {
+router.post('/revise/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
@@ -339,7 +318,7 @@ router.post('/Ditolak/:id', async (req, res) => {
 
             res.status(200).json({
                 status: 200,
-                message: 'Event Ditolakd successfully',
+                message: 'Event Ditolak successfully',
                 data: event
             });
         } else {
@@ -357,7 +336,7 @@ router.post('/Ditolak/:id', async (req, res) => {
     }
 });
 
-router.post('/Disetujui/:id', async (req, res) => {
+router.post('/approve/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
@@ -368,7 +347,7 @@ router.post('/Disetujui/:id', async (req, res) => {
 
             res.status(200).json({
                 status: 200,
-                message: 'Event Disetujuid successfully',
+                message: 'Event Disetujui',
                 data: event
             });
         } else {
@@ -402,46 +381,6 @@ router.post('/fix/:id', async (req, res) => {
         res.status(200).json({ message: 'Event fixed successfully' });
     } catch (error) {
         console.error('Error fixing event:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-router.post('/reject-handler/:id', async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        const event = await Event.findOne({ where: { id } });
-        if (!event) {
-            return res.status(404).json({ message: 'Event not found' });
-        }
-
-        event.status = 'Penerima Menolak';
-        await event.save();
-
-        res.status(200).json({ message: 'Event rejected successfully' });
-    } catch (error) {
-        console.error('Error rejecting event:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-router.put('/change-handler/:id', async (req, res) => {
-    const { id } = req.params;
-    const { toDivisionId, toPersonId } = req.body;
-
-    try {
-        const event = await Event.findOne({ where: { id } });
-        if (!event) {
-            return res.status(404).json({ message: 'Event not found' });
-        }
-
-        event.toDivisionId = toDivisionId;
-        event.toPersonId = toPersonId;
-        await event.save();
-
-        res.status(200).json({ message: 'Handler changed successfully' });
-    } catch (error) {
-        console.error('Error changing handler:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });

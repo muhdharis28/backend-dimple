@@ -62,7 +62,7 @@ router.post('/upload-response-files', upload.array('responseFiles'), async (req,
 
 // Route to create a response
 router.post('/create', async (req, res) => {
-  const { responseText, responseImageUrl, responseFileUrls, eventId, userId } = req.body;
+  const { responseText, responseImageUrl, responseFileUrls, eventId, userId, userRole } = req.body;
   try {
     const event = await Event.findByPk(eventId);
     if (!event) {
@@ -77,8 +77,14 @@ router.post('/create', async (req, res) => {
       userId,
     });
 
+    // If the user role is 'verificator', update the event status to 'Ditolak'
+    if (userRole === 'delegation_verificator') {
+      event.status = 'Ditolak';
+      await event.save();
+    }
+
     res.status(201).json({
-      message: 'Response created successfully',
+      message: `Response created successfully${userRole === 'delegation_verificator' ? ' and event status updated to Ditolak' : ''}`,
       data: response,
     });
   } catch (error) {
@@ -86,6 +92,7 @@ router.post('/create', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 
 // Get responses for an event
 router.get('/event/:eventId', async (req, res) => {
